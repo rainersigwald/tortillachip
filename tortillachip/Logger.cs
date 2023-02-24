@@ -37,8 +37,6 @@ public class Logger : INodeLogger
     {
         //Debugger.Launch();
 
-        Console.Write("\x1b" + "7");
-
         eventSource.BuildStarted += new BuildStartedEventHandler(BuildStarted);
         eventSource.BuildFinished += new BuildFinishedEventHandler(BuildFinished);
         eventSource.ProjectStarted += new ProjectStartedEventHandler(ProjectStarted);
@@ -135,8 +133,6 @@ public class Logger : INodeLogger
     {
         lock (_lock)
         {
-            Console.Write("\x1b"+"7");
-
             int i = 0;
             foreach (NodeStatus n in _nodes)
             {
@@ -165,10 +161,8 @@ public class Logger : INodeLogger
             {
                 return;
             }
-            //Console.WriteLine($"\x1b[{_usedNodes + 1}F");
-            Console.Write("\x1b" + "8");
+            Console.WriteLine($"\x1b[{_usedNodes + 1}F");
             Console.Write($"\x1b[0J");
-            //Console.Write($"\x1b[{_usedNodes}F");
         }
     }
 
