@@ -116,12 +116,15 @@ public class Logger : INodeLogger
         ProjectContext c = new(e);
         if (_notabilityByContext[c].Notable)
         {
-            EraseNodes();
+            lock (_lock)
+            {
+                EraseNodes();
 
-            double duration = _notableProjects[c].Stopwatch.Elapsed.TotalSeconds;
+                double duration = _notableProjects[c].Stopwatch.Elapsed.TotalSeconds;
 
-            Console.WriteLine($"{e.ProjectFile} \x1b[1mcompleted\x1b[22m ({duration:F1}s)");
-            DisplayNodes();
+                Console.WriteLine($"{e.ProjectFile} \x1b[1mcompleted\x1b[22m ({duration:F1}s)");
+                DisplayNodes();
+            }
         }
     }
 
