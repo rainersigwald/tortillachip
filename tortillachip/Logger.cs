@@ -10,9 +10,9 @@ public class Logger : INodeLogger
     public LoggerVerbosity Verbosity { get => LoggerVerbosity.Minimal; set => value = LoggerVerbosity.Minimal; }
     public string Parameters { get => ""; set => value = ""; }
 
-    object _lock = new();
+    readonly object _lock = new();
 
-    CancellationTokenSource _cts = new();
+    readonly CancellationTokenSource _cts = new();
 
     NodeStatus[] _nodes;
 
