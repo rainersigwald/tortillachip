@@ -35,7 +35,10 @@ public class Logger : INodeLogger
 
     public void Initialize(IEventSource eventSource)
     {
-        // Debugger.Launch();
+        //Debugger.Launch();
+
+        Console.Write("\x1b" + "7");
+
         eventSource.BuildStarted += new BuildStartedEventHandler(BuildStarted);
         eventSource.BuildFinished += new BuildFinishedEventHandler(BuildFinished);
         eventSource.ProjectStarted += new ProjectStartedEventHandler(ProjectStarted);
