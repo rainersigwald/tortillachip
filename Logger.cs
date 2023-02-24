@@ -14,11 +14,15 @@ public class Logger : INodeLogger
 
     object _lock = new();
 
+    CancellationTokenSource _cts = new();
+
     NodeStatus[] _nodes;
 
-    Dictionary<string, Project> _notableProjects = new();
+    readonly Dictionary<ProjectContext, Project> _notableProjects = new();
 
-    Dictionary<ProjectContext, (bool Notable, string Path, string Targets)> _notabilityByContext = new();
+    readonly Dictionary<ProjectContext, (bool Notable, string Path, string Targets)> _notabilityByContext = new();
+
+    readonly Dictionary<ProjectContext, Stopwatch> _projectTimeCounter = new();
 
     int _usedNodes = 0;
 
@@ -31,7 +35,7 @@ public class Logger : INodeLogger
 
     public void Initialize(IEventSource eventSource)
     {
-        Debugger.Launch();
+        // Debugger.Launch();
         eventSource.BuildStarted += new BuildStartedEventHandler(BuildStarted);
         eventSource.BuildFinished += new BuildFinishedEventHandler(BuildFinished);
         eventSource.ProjectStarted += new ProjectStartedEventHandler(ProjectStarted);
@@ -43,6 +47,24 @@ public class Logger : INodeLogger
         eventSource.MessageRaised += new BuildMessageEventHandler(MessageRaised);
         eventSource.WarningRaised += new BuildWarningEventHandler(WarningRaised);
         eventSource.ErrorRaised += new BuildErrorEventHandler(ErrorRaised);
+
+        Thread refresher = new(ThreadProc);
+        refresher.Start();
+    }
+
+    private void ThreadProc()
+    {
+        while (!_cts.IsCancellationRequested)
+        {
+            Thread.Sleep(1_000 / 30); // poor approx of 30Hz
+            lock (_lock)
+            {
+                EraseNodes();
+                DisplayNodes();
+            }
+        }
+
+        EraseNodes();
     }
 
     private void BuildStarted(object sender, BuildStartedEventArgs e)
@@ -51,7 +73,6 @@ public class Logger : INodeLogger
 
     private void BuildFinished(object sender, BuildFinishedEventArgs e)
     {
-        EraseNodes();
     }
 
     private void ProjectStarted(object sender, ProjectStartedEventArgs e)
@@ -59,6 +80,9 @@ public class Logger : INodeLogger
         bool notable = IsNotableProject(e);
 
         _notabilityByContext[new ProjectContext(e)] = (notable, e.ProjectFile, e.TargetNames);
+
+        ProjectContext c = new ProjectContext(e);
+        _projectTimeCounter[c] = Stopwatch.StartNew();
 
         if (!notable) 
         {
@@ -68,9 +92,8 @@ public class Logger : INodeLogger
         else
         {
             //Console.WriteLine($"{e.ProjectFile}:{e.TargetNames} IS notable");
+            _notableProjects[c] = new();
         }
-
-        //_notableProjects
     }
 
     private bool IsNotableProject(ProjectStartedEventArgs e)
@@ -88,12 +111,16 @@ public class Logger : INodeLogger
         //     );
     }
 
-        private void ProjectFinished(object sender, ProjectFinishedEventArgs e)
+    private void ProjectFinished(object sender, ProjectFinishedEventArgs e)
     {
-        if (_notabilityByContext[new ProjectContext(e)].Notable)
+        ProjectContext c = new(e);
+        if (_notabilityByContext[c].Notable)
         {
             EraseNodes();
-            Console.WriteLine($"{e.ProjectFile} \x1b[1mcompleted\x1b[22m");
+
+            double duration = _notableProjects[c].Stopwatch.Elapsed.TotalSeconds;
+
+            Console.WriteLine($"{e.ProjectFile} \x1b[1mcompleted\x1b[22m ({duration:F1}s)");
             DisplayNodes();
         }
     }
@@ -141,10 +168,7 @@ public class Logger : INodeLogger
 
     private void TargetStarted(object sender, TargetStartedEventArgs e)
     {
-        _nodes[NodeIndexForContext(e.BuildEventContext)] = new(e.ProjectFile, e.TargetName);
-
-        EraseNodes();
-        DisplayNodes();
+        _nodes[NodeIndexForContext(e.BuildEventContext)] = new(e.ProjectFile, e.TargetName, _projectTimeCounter[new ProjectContext(e)]);
     }
 
     private int NodeIndexForContext(BuildEventContext context)
@@ -176,6 +200,7 @@ public class Logger : INodeLogger
 
     public void Shutdown()
     {
+        _cts.Cancel();
     }
 }
 
@@ -190,4 +215,10 @@ internal record ProjectContext(int Id)
     { }
 }
 
-internal record NodeStatus(string Project, string Target);
+internal record NodeStatus(string Project, string Target, Stopwatch Stopwatch)
+{
+    public override string ToString()
+    {
+        return $"{Project} {Target} ({Stopwatch.Elapsed.TotalSeconds:F1}s)";
+    }
+}
