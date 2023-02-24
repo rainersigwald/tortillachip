@@ -22,6 +22,8 @@ public class Logger : INodeLogger
 
     readonly Dictionary<ProjectContext, (bool Notable, string Path, string Targets)> _notabilityByContext = new();
 
+    readonly Dictionary<ProjectInstance, ProjectContext> _relevantContextByInstance = new();
+
     readonly Dictionary<ProjectContext, Stopwatch> _projectTimeCounter = new();
 
     int _usedNodes = 0;
@@ -80,9 +82,12 @@ public class Logger : INodeLogger
     {
         bool notable = IsNotableProject(e);
 
-        _notabilityByContext[new ProjectContext(e)] = (notable, e.ProjectFile, e.TargetNames);
-
         ProjectContext c = new ProjectContext(e);
+
+        _notabilityByContext[c] = (notable, e.ProjectFile, e.TargetNames);
+
+        _relevantContextByInstance.TryAdd(new ProjectInstance(e), c);
+
         _projectTimeCounter[c] = Stopwatch.StartNew();
 
         if (!notable) 
@@ -115,7 +120,7 @@ public class Logger : INodeLogger
     private void ProjectFinished(object sender, ProjectFinishedEventArgs e)
     {
         ProjectContext c = new(e);
-        if (_notabilityByContext[c].Notable)
+        if (_notabilityByContext[c].Notable && _relevantContextByInstance[new ProjectInstance(e)] == c)
         {
             lock (_lock)
             {
@@ -216,6 +221,17 @@ internal record ProjectContext(int Id)
     { }
 }
 
+internal record ProjectInstance(int Id)
+{
+    public ProjectInstance(BuildEventContext context)
+        : this(context.ProjectInstanceId)
+    { }
+
+    public ProjectInstance(BuildEventArgs e)
+        : this(e.BuildEventContext)
+    { }
+}
+
 internal record NodeStatus(string Project, string Target, Stopwatch Stopwatch)
 {
     public override string ToString()
@@ -223,3 +239,5 @@ internal record NodeStatus(string Project, string Target, Stopwatch Stopwatch)
         return $"{Project} {Target} ({Stopwatch.Elapsed.TotalSeconds:F1}s)";
     }
 }
+
+internal record ProjectReferenceUniqueness(ProjectInstance Instance, string TargetList);
