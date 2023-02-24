@@ -142,7 +142,7 @@ public class Logger : INodeLogger
 
     string FitToWidth(string input)
     {
-        return input.Substring(0, Math.Min(input.Length, Console.WindowWidth - 1));
+        return input.Substring(0, Math.Min(input.Length, Console.BufferWidth - 1));
     }
 
     private void EraseNodes()
