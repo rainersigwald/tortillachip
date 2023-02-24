@@ -10,8 +10,6 @@ public class Logger : INodeLogger
     public LoggerVerbosity Verbosity { get => LoggerVerbosity.Minimal; set => value = LoggerVerbosity.Minimal; }
     public string Parameters { get => ""; set => value = ""; }
 
-    Stopwatch _overallTime = new();
-
     object _lock = new();
 
     CancellationTokenSource _cts = new();
@@ -90,14 +88,8 @@ public class Logger : INodeLogger
 
         _projectTimeCounter[c] = Stopwatch.StartNew();
 
-        if (!notable) 
+        if (notable)
         {
-            //Console.WriteLine($"{e.ProjectFile}:{e.TargetNames} is not notable");
-            return;
-        }
-        else
-        {
-            //Console.WriteLine($"{e.ProjectFile}:{e.TargetNames} IS notable");
             _notableProjects[c] = new();
         }
     }
@@ -110,11 +102,6 @@ public class Logger : INodeLogger
             "GetTargetFrameworks" or "GetTargetFrameworks" or "GetNativeManifest" or "GetCopyToOutputDirectoryItems" => false,
             _ => true,
         };
-        //return e.TargetNames is { Length: 0 } &&
-        //    (e.GlobalProperties.ContainsKey("TargetFramework") // is an inner build
-        //    ||
-        //     false // TODO: e.Properties["TargetFrameworks"] is empty // is single-targeted
-        //     );
     }
 
     private void ProjectFinished(object sender, ProjectFinishedEventArgs e)
