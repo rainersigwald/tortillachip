@@ -26,6 +26,8 @@ public class Logger : INodeLogger
 
     int _usedNodes = 0;
 
+    private ProjectContext _restoreContext;
+
     public void Initialize(IEventSource eventSource, int nodeCount)
     {
         _nodes = new NodeStatus[nodeCount];
@@ -82,23 +84,36 @@ public class Logger : INodeLogger
 
         ProjectContext c = new ProjectContext(e);
 
-        _notabilityByContext[c] = (notable, e.ProjectFile, e.TargetNames);
-
-        _relevantContextByInstance.TryAdd(new ProjectInstance(e), c);
-
-        _projectTimeCounter[c] = Stopwatch.StartNew();
-
         if (notable)
         {
             _notableProjects[c] = new();
         }
+
+        _projectTimeCounter[c] = Stopwatch.StartNew();
+
+        if (e.TargetNames == "Restore")
+        {
+            _restoreContext = c;
+            Console.WriteLine("Restoring");
+            return;
+        }
+
+        _notabilityByContext[c] = (notable, e.ProjectFile, e.TargetNames);
+
+        _relevantContextByInstance.TryAdd(new ProjectInstance(e), c);
+
     }
 
     private bool IsNotableProject(ProjectStartedEventArgs e)
     {
+        if (_restoreContext is not null)
+        {
+            return false;
+        }
+
         return e.TargetNames switch
         {
-            "" => true,
+            "" or "Restore" => true,
             "GetTargetFrameworks" or "GetTargetFrameworks" or "GetNativeManifest" or "GetCopyToOutputDirectoryItems" => false,
             _ => true,
         };
@@ -107,6 +122,25 @@ public class Logger : INodeLogger
     private void ProjectFinished(object sender, ProjectFinishedEventArgs e)
     {
         ProjectContext c = new(e);
+
+        if (_restoreContext is ProjectContext restoreContext && c == restoreContext)
+        {
+            lock (_lock)
+            {
+
+                _restoreContext = null;
+
+                double duration = _notableProjects[restoreContext].Stopwatch.Elapsed.TotalSeconds;
+
+                EraseNodes();
+                Console.WriteLine($"\x1b[{_usedNodes + 1}F");
+                Console.Write($"\x1b[0J");
+                Console.WriteLine($"Restore complete ({duration:F1}s)");
+                DisplayNodes();
+                return;
+            }
+        }
+
         if (_notabilityByContext[c].Notable && _relevantContextByInstance[new ProjectInstance(e)] == c)
         {
             lock (_lock)
