@@ -204,7 +204,6 @@ public class Logger : INodeLogger
 
     private void TargetFinished(object sender, TargetFinishedEventArgs e)
     {
-        _nodes[NodeIndexForContext(e.BuildEventContext)] = null;
     }
 
     private void TaskStarted(object sender, TaskStartedEventArgs e)
