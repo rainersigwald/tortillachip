@@ -209,6 +209,11 @@ public class Logger : INodeLogger
 
     private void TaskStarted(object sender, TaskStartedEventArgs e)
     {
+        if (e.TaskName == "MSBuild")
+        {
+            // This will yield the node, so preemptively mark it idle
+            _nodes[NodeIndexForContext(e.BuildEventContext)] = null;
+        }
     }
 
     private void MessageRaised(object sender, BuildMessageEventArgs e)
